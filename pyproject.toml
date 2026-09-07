@@ -24,3 +24,5 @@ dev = [
     "httpx",
     "ruff",
 ]
+[tool.ruff.lint]
+ignore = ["B008"]
