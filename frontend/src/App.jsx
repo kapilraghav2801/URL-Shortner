@@ -87,8 +87,8 @@ function App() {
               <button className="primary-button" type="submit" disabled={loading}>{loading ? 'Creating...' : 'Shorten URL'}{!loading && <span>→</span>}</button>
             </div>
             <div className="custom-row">
-              <label htmlFor="short-code">Custom short code <span>optional</span></label>
-              <div className="input-wrap custom-input"><span className="prefix">smart.ly/</span><input id="short-code" value={shortCode} onChange={(event) => setShortCode(event.target.value.replace(/\s/g, ''))} placeholder="my-link" maxLength={64} /></div>
+              <label htmlFor="short-code">Short code</label>
+              <div className="input-wrap custom-input"><span className="prefix">your.link/</span><input id="short-code" value={shortCode} onChange={(event) => setShortCode(event.target.value.replace(/\s/g, ''))} placeholder="my-link" maxLength={64} required /></div>
             </div>
           </form>
 
@@ -100,7 +100,7 @@ function App() {
             <div className="result-actions"><button className="secondary-button" type="button" onClick={copyLink}>{copied ? 'Copied!' : 'Copy link'}</button><button className="ghost-button" type="button" onClick={loadAnalytics} disabled={analyticsLoading}>{analyticsLoading ? 'Loading...' : 'View clicks'}</button></div>
           </section>}
 
-          {analytics && <div className="analytics-card" id="analytics"><div><span className="result-label">LINK ANALYTICS</span><strong>{analytics.total_clicks}</strong><span className="muted"> total clicks</span></div><div className="analytics-code">smart.ly/{analytics.short_code}</div></div>}
+          {analytics && <div className="analytics-card" id="analytics"><div><span className="result-label">LINK ANALYTICS</span><strong>{analytics.total_clicks}</strong><span className="muted"> total clicks</span></div><div className="analytics-code">your.link/{analytics.short_code}</div></div>}
         </section>
 
         <section className="trust-strip"><span>BUILT FOR THE NEXT STAGE</span><div><b>FastAPI</b><b>PostgreSQL</b><b>Async</b><b>Analytics-ready</b></div></section>
