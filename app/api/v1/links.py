@@ -41,6 +41,14 @@ async def create_link(
     return link
 
 
+@router.get("", response_model=list[LinkResponse])
+async def list_links(
+    session: AsyncSession = Depends(get_db),
+) -> list[LinkResponse]:
+    service = LinkService(session)
+    return await service.list_links()
+
+
 @router.get(
     "/{short_code}/analytics",
     response_model=LinkAnalyticsResponse,
