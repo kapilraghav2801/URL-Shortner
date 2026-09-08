@@ -36,7 +36,6 @@ class LinkService:
         return await self.repository.create(link)
 
     async def resolve_link(self, short_code: str) -> Link:
-
         link = await self.repository.get_by_short_code(short_code)
 
         if link is None:
@@ -76,3 +75,6 @@ class LinkService:
             raise LinkNotAvailableError("Link not found")
 
         return await self.click_event_repository.count_by_link_id(link.id)
+
+    async def list_links(self) -> list[Link]:
+        return await self.repository.list_all()
