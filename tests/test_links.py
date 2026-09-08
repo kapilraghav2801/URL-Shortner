@@ -292,3 +292,31 @@ async def test_link_analytics_unknown_short_code_returns_not_found(client):
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Link not found"
+
+
+@pytest.mark.asyncio
+async def test_list_links(client):
+    await client.post(
+        "/api/v1/links",
+        json={
+            "destination_url": "https://example.com",
+            "short_code": "list-link-one",
+        },
+    )
+
+    await client.post(
+        "/api/v1/links",
+        json={
+            "destination_url": "https://google.com",
+            "short_code": "list-link-two",
+        },
+    )
+
+    response = await client.get(
+        "/api/v1/links",
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 2
+    short_codes = {link["short_code"] for link in data}
+    assert short_codes == {"list-link-one", "list-link-two"}

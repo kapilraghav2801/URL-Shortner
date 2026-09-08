@@ -63,3 +63,12 @@ async def get_link_analytics(
         short_code=short_code,
         total_clicks=total_clicks,
     )
+
+
+@router.get("", response_model=list[LinkResponse])
+async def list_links(
+    session: AsyncSession = Depends(get_db),
+) -> list[LinkResponse]:
+    service = LinkService(session)
+    links = await service.list_links()
+    return links

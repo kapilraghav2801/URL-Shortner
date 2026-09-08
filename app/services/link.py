@@ -76,3 +76,7 @@ class LinkService:
             raise LinkNotAvailableError("Link not found")
 
         return await self.click_event_repository.count_by_link_id(link.id)
+
+    async def list_links(self) -> list[Link]:
+        links = await self.repository.list_all()
+        return links

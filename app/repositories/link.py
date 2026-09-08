@@ -23,3 +23,8 @@ class LinkRepository:
         await self.session.refresh(link)
 
         return link
+
+    async def list_all(self) -> list[Link]:
+        query = select(Link)
+        result = await self.session.execute(query)
+        return list(result.scalars().all())
