@@ -23,3 +23,10 @@ class LinkRepository:
         await self.session.refresh(link)
 
         return link
+
+    async def list_all(self) -> list[Link]:
+        result = await self.session.execute(
+            select(Link).order_by(Link.created_at.desc())
+        )
+
+        return list(result.scalars().all())
