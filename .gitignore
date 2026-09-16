@@ -26,3 +26,5 @@ Thumbs.db
 # Flask
 instance/
 .env
+
+frontend/node_modules/

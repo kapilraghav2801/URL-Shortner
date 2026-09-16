@@ -295,6 +295,207 @@ async def test_link_analytics_unknown_short_code_returns_not_found(client):
 
 
 @pytest.mark.asyncio
+async def test_create_link_with_expiration(client):
+    create_response = await client.post(
+        "/api/v1/links",
+        json={
+            "destination_url": "https://example.com",
+            "short_code": "link_with_expiration",
+            "expires_at": "2030-01-01T00:00:00Z",
+        },
+    )
+    assert create_response.status_code == 201
+    data = create_response.json()
+
+    assert data["expires_at"] == "2030-01-01T00:00:00Z"
+
+
+@pytest.mark.asyncio
+async def test_update_link_expiration(client):
+    create_response = await client.post(
+        "/api/v1/links",
+        json={
+            "destination_url": "https://example.com",
+            "short_code": "update_expiration",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    update_response = await client.patch(
+        "/api/v1/links/update_expiration",
+        json={
+            "expires_at": "2030-01-01T00:00:00Z",
+        },
+    )
+
+    assert update_response.status_code == 200
+
+    data = update_response.json()
+
+    assert data["short_code"] == "update_expiration"
+    assert data["expires_at"] == "2030-01-01T00:00:00Z"
+
+
+@pytest.mark.asyncio
+async def test_deactivate_link(client):
+
+    create_response = await client.post(
+        "/api/v1/links",
+        json={
+            "destination_url": "https://example.com",
+            "short_code": "deactivate-test",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    update_response = await client.patch(
+        "/api/v1/links/deactivate-test",
+        json={
+            "is_active": False,
+        },
+    )
+
+    assert update_response.status_code == 200
+    data = update_response.json()
+    assert data["is_active"] is False
+
+    redirect_response = await client.get(
+        "/deactivate-test",
+        follow_redirects=False,
+    )
+
+    assert redirect_response.status_code == 404
+    assert redirect_response.json()["detail"] == "Link is inactive"
+
+
+@pytest.mark.asyncio
+async def test_update_link_remove_expiration(client):
+    create_response = await client.post(
+        "/api/v1/links",
+        json={
+            "destination_url": "https://example.com",
+            "short_code": "remove-expiration",
+            "expires_at": "2030-01-01T00:00:00Z",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    update_response = await client.patch(
+        "/api/v1/links/remove-expiration",
+        json={
+            "expires_at": None,
+        },
+    )
+
+    assert update_response.status_code == 200
+
+    data = update_response.json()
+
+    assert data["expires_at"] is None
+
+
+@pytest.mark.asyncio
+async def test_update_unknown_link_returns_not_found(client):
+    response = await client.patch(
+        "/api/v1/links/does-not-exist",
+        json={
+            "is_active": False,
+        },
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Link not found"
+
+
+@pytest.mark.asyncio
+async def test_create_link_generates_short_code(client):
+    response = await client.post(
+        "/api/v1/links",
+        json={
+            "destination_url": "https://example.com",
+        },
+    )
+
+    assert response.status_code == 201
+
+    data = response.json()
+
+    assert data["short_code"] is not None
+    assert len(data["short_code"]) == 7
+
+
+@pytest.mark.asyncio
+async def test_link_analytics_returns_time_based_counts(
+    client,
+    test_session_factory,
+):
+    create_response = await client.post(
+        "/api/v1/links",
+        json={
+            "destination_url": "https://example.com",
+            "short_code": "time-analytics",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    link_id = create_response.json()["id"]
+
+    now = datetime.now(UTC)
+
+    today_start = now.replace(
+        hour=0,
+        minute=0,
+        second=0,
+        microsecond=0,
+    )
+
+    week_start = today_start - timedelta(days=today_start.weekday())
+
+    month_start = today_start.replace(day=1)
+
+    async with test_session_factory() as session:
+        events = [
+            ClickEvent(
+                link_id=link_id,
+                clicked_at=now,
+            ),
+            ClickEvent(
+                link_id=link_id,
+                clicked_at=week_start + timedelta(hours=1),
+            ),
+            ClickEvent(
+                link_id=link_id,
+                clicked_at=month_start + timedelta(hours=1),
+            ),
+            ClickEvent(
+                link_id=link_id,
+                clicked_at=month_start - timedelta(hours=1),
+            ),
+        ]
+
+        session.add_all(events)
+        await session.commit()
+
+    response = await client.get(
+        "/api/v1/links/time-analytics/analytics",
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["short_code"] == "time-analytics"
+    assert data["total_clicks"] == 4
+    assert data["clicks_today"] == 1
+    assert data["clicks_this_week"] == 2
+    assert data["clicks_this_month"] == 3
+
+
+@pytest.mark.asyncio
 async def test_list_links(client):
     await client.post(
         "/api/v1/links",
@@ -315,8 +516,16 @@ async def test_list_links(client):
     response = await client.get(
         "/api/v1/links",
     )
+
     assert response.status_code == 200
+
     data = response.json()
+
     assert len(data) == 2
+
     short_codes = {link["short_code"] for link in data}
-    assert short_codes == {"list-link-one", "list-link-two"}
+
+    assert short_codes == {
+        "list-link-one",
+        "list-link-two",
+    }

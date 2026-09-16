@@ -1,4 +1,6 @@
-from datetime import UTC, datetime
+import secrets
+import string
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -6,7 +8,14 @@ from app.models.click_event import ClickEvent
 from app.models.link import Link
 from app.repositories.click_event import ClickEventRepository
 from app.repositories.link import LinkRepository
-from app.schemas.link import LinkCreate
+from app.schemas.link import LinkCreate, LinkUpdate
+
+ALPHABET = string.ascii_letters + string.digits
+SHORT_CODE_LENGTH = 7
+
+
+def generate_short_code() -> str:
+    return "".join(secrets.choice(ALPHABET) for _ in range(SHORT_CODE_LENGTH))
 
 
 class ShortCodeAlreadyExistsError(Exception):
@@ -23,20 +32,31 @@ class LinkService:
         self.click_event_repository = ClickEventRepository(session)
 
     async def create_link(self, data: LinkCreate) -> Link:
-        existing_link = await self.repository.get_by_short_code(data.short_code)
+        short_code = data.short_code
 
-        if existing_link is not None:
-            raise ShortCodeAlreadyExistsError("Short code already exists")
+        if short_code is None:
+            while True:
+                short_code = generate_short_code()
+
+                existing_link = await self.repository.get_by_short_code(short_code)
+
+                if existing_link is None:
+                    break
+        else:
+            existing_link = await self.repository.get_by_short_code(short_code)
+
+            if existing_link is not None:
+                raise ShortCodeAlreadyExistsError("Short code already exists")
 
         link = Link(
-            short_code=data.short_code,
+            short_code=short_code,
             destination_url=str(data.destination_url),
+            expires_at=data.expires_at,
         )
 
         return await self.repository.create(link)
 
     async def resolve_link(self, short_code: str) -> Link:
-
         link = await self.repository.get_by_short_code(short_code)
 
         if link is None:
@@ -78,5 +98,53 @@ class LinkService:
         return await self.click_event_repository.count_by_link_id(link.id)
 
     async def list_links(self) -> list[Link]:
-        links = await self.repository.list_all()
-        return links
+        return await self.repository.list_all()
+
+    async def update_link(
+        self,
+        short_code: str,
+        data: LinkUpdate,
+    ) -> Link:
+        link = await self.repository.get_by_short_code(short_code)
+
+        if link is None:
+            raise LinkNotAvailableError("Link not found")
+
+        updates = data.model_dump(exclude_unset=True)
+
+        for field, value in updates.items():
+            setattr(link, field, value)
+
+        return await self.repository.update(link)
+
+    async def get_link_analytics(
+        self,
+        short_code: str,
+    ) -> tuple[int, int, int, int]:
+
+        link = await self.repository.get_by_short_code(short_code)
+
+        if link is None:
+            raise LinkNotAvailableError("Link not found")
+
+        now = datetime.now(UTC)
+
+        today_start = now.replace(
+            hour=0,
+            minute=0,
+            second=0,
+            microsecond=0,
+        )
+
+        week_start = today_start - timedelta(days=today_start.weekday())
+
+        month_start = today_start.replace(
+            day=1,
+        )
+
+        return await self.click_event_repository.get_analytics(
+            link.id,
+            today_start,
+            week_start,
+            month_start,
+        )

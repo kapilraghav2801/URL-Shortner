@@ -24,6 +24,13 @@ class LinkRepository:
 
         return link
 
+    async def update(self, link: Link) -> Link:
+        self.session.add(link)
+        await self.session.commit()
+        await self.session.refresh(link)
+        return link
+
+
     async def list_all(self) -> list[Link]:
         query = select(Link)
         result = await self.session.execute(query)

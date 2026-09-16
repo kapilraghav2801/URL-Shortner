@@ -6,6 +6,7 @@ from app.schemas.link import (
     LinkAnalyticsResponse,
     LinkCreate,
     LinkResponse,
+    LinkUpdate,
 )
 from app.services.link import (
     LinkNotAvailableError,
@@ -41,6 +42,14 @@ async def create_link(
     return link
 
 
+@router.get("", response_model=list[LinkResponse])
+async def list_links(
+    session: AsyncSession = Depends(get_db),
+) -> list[LinkResponse]:
+    service = LinkService(session)
+    return await service.list_links()
+
+
 @router.get(
     "/{short_code}/analytics",
     response_model=LinkAnalyticsResponse,
@@ -52,7 +61,13 @@ async def get_link_analytics(
     service = LinkService(session)
 
     try:
-        total_clicks = await service.get_click_count(short_code)
+        (
+            total_clicks,
+            clicks_today,
+            clicks_this_week,
+            clicks_this_month,
+        ) = await service.get_link_analytics(short_code)
+
     except LinkNotAvailableError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -62,13 +77,29 @@ async def get_link_analytics(
     return LinkAnalyticsResponse(
         short_code=short_code,
         total_clicks=total_clicks,
+        clicks_today=clicks_today,
+        clicks_this_week=clicks_this_week,
+        clicks_this_month=clicks_this_month,
     )
 
 
-@router.get("", response_model=list[LinkResponse])
-async def list_links(
+@router.patch(
+    "/{short_code}",
+    response_model=LinkResponse,
+)
+async def update_link(
+    short_code: str,
+    data: LinkUpdate,
     session: AsyncSession = Depends(get_db),
-) -> list[LinkResponse]:
+) -> LinkResponse:
     service = LinkService(session)
-    links = await service.list_links()
-    return links
+
+    try:
+        updated_link = await service.update_link(short_code, data)
+    except LinkNotAvailableError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
+
+    return updated_link
